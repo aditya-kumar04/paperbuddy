@@ -1,0 +1,197 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  ACCOUNTANT
+  STUDENT
+}
+
+enum SchoolStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum FeeStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  WAIVED
+}
+
+enum TransactionMethod {
+  UPI
+  CARD
+  CASH
+  CHEQUE
+}
+
+enum TransactionStatus {
+  SUCCESS
+  PENDING
+  FAILED
+  CLEARED
+  BOUNCED
+}
+
+model SuperAdmin {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model School {
+  id           String       @id @default(uuid())
+  name         String
+  slug         String       @unique
+  address      String?
+  logoUrl      String?
+  contactEmail String
+  status       SchoolStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  
+  // Relations
+  users        User[]
+  feeTypes     FeeType[]
+  feeStructures FeeStructure[]
+  studentFees  StudentFee[]
+  transactions Transaction[]
+  invites      Invite[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  schoolId     String?  // Nullable for SUPER_ADMIN
+  school       School?  @relation(fields: [schoolId], references: [id])
+  role         Role
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  status       String   @default("active") // active, inactive
+  permissions  Json?    // Specific permissions for Accountants
+  createdAt    DateTime @default(now())
+
+  // Relations
+  studentProfile Student?
+  invitesCreated Invite[] @relation("InviteCreator")
+}
+
+model Student {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId      String
+  rollNumber    String
+  class         String   // e.g. "10", "12"
+  section       String   // e.g. "A", "B"
+  guardianName  String
+  guardianPhone String
+  admissionDate DateTime @default(now())
+  photoUrl      String?
+
+  // Relations
+  studentFees   StudentFee[]
+
+  @@unique([schoolId, rollNumber])
+  @@index([schoolId])
+}
+
+model FeeType {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  name        String   // e.g. "Tuition Fee", "Bus Fee"
+  description String?
+  isRecurring Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  structures  FeeStructure[]
+
+  @@index([schoolId])
+}
+
+model FeeStructure {
+  id           String       @id @default(uuid())
+  schoolId     String
+  school       School       @relation(fields: [schoolId], references: [id])
+  feeTypeId    String
+  feeType      FeeType      @relation(fields: [feeTypeId], references: [id])
+  class        String       // Applied to this grade
+  amount       Decimal      @db.Decimal(10, 2)
+  dueDate      DateTime
+  academicYear String       // e.g. "2026-2027"
+
+  // Relations
+  studentFees  StudentFee[]
+
+  @@index([schoolId])
+}
+
+model StudentFee {
+  id             String       @id @default(uuid())
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeStructureId String
+  feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id])
+  amountDue      Decimal      @db.Decimal(10, 2)
+  amountPaid     Decimal      @default(0.00) @db.Decimal(10, 2)
+  status         FeeStatus    @default(UNPAID)
+  waiverAmount   Decimal      @default(0.00) @db.Decimal(10, 2)
+  waiverReason   String?
+  waiverApprovedBy String?
+  penaltyAmount  Decimal      @default(0.00) @db.Decimal(10, 2)
+  dueDate        DateTime
+
+  // Relations
+  transactions   Transaction[]
+
+  @@unique([studentId, feeStructureId]) // Prevents duplicate fee assignments
+  @@index([schoolId])
+  @@index([schoolId, status]) // Composite index for defaulter tracking
+}
+
+model Transaction {
+  id           String            @id @default(uuid())
+  schoolId     String
+  school       School            @relation(fields: [schoolId], references: [id])
+  studentFeeId String
+  studentFee   StudentFee        @relation(fields: [studentFeeId], references: [id])
+  amount       Decimal           @db.Decimal(10, 2)
+  method       TransactionMethod
+  status       TransactionStatus @default(PENDING)
+  chequeNumber String?
+  chequeDate   DateTime?
+  recordedBy   String            // User ID (Accountant) or "system" (Student online pay)
+  receiptUrl   String?
+  createdAt    DateTime          @default(now())
+
+  @@index([schoolId])
+}
+
+model Invite {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  email     String
+  role      Role
+  token     String   @unique
+  expiresAt DateTime
+  accepted  Boolean  @default(false)
+  createdById String
+  createdBy User     @relation("InviteCreator", fields: [createdById], references: [id])
+
+  @@index([schoolId])
+}

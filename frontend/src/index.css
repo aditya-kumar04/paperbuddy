@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(243, 239, 255, 0.4) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(235, 243, 255, 0.4) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(255, 240, 245, 0.3) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+}
+
+.glass-card-hover {
+  @apply transition-all duration-300 hover:shadow-premium hover:-translate-y-0.5;
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all duration-200 outline-none rounded-xl px-4 py-2.5;
+}
+
+.glass-btn-primary {
+  @apply bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-5 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-95;
+}
+
+.glass-btn-secondary {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  @apply hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-5 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 active:scale-95;
+}
+
+.pastel-badge-blue {
+  @apply bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+.pastel-badge-green {
+  @apply bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+.pastel-badge-yellow {
+  @apply bg-amber-50 text-amber-600 border border-amber-100 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+.pastel-badge-red {
+  @apply bg-rose-50 text-rose-600 border border-rose-100 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+}
+
+/* Print formatting for receipt */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    background-image: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .glass-card {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+}
