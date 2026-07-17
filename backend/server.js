@@ -4,6 +4,7 @@ import { PORT, ALLOWED_ORIGINS } from './src/config.js';
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 
 // Import routers
 import authRouter from './src/routes/auth.js';
@@ -11,8 +12,13 @@ import superAdminRouter from './src/routes/superAdmin.js';
 import schoolAdminRouter from './src/routes/schoolAdmin.js';
 import accountantRouter from './src/routes/accountant.js';
 import studentRouter from './src/routes/student.js';
+import { apiLimiter } from './src/middlewares/rateLimit.js';
 
 const app = express();
+
+// Sets a set of sensible security-related HTTP headers (X-Content-Type-Options,
+// Strict-Transport-Security, disables X-Powered-By, etc.)
+app.use(helmet());
 
 // Middleware
 app.use(cors({
@@ -23,6 +29,10 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Baseline rate limit across the whole API; individual auth endpoints layer
+// tighter limiters on top (see routes/auth.js).
+app.use('/api', apiLimiter);
 
 // Base health check
 app.get('/health', (req, res) => {

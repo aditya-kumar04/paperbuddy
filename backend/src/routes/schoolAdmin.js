@@ -17,7 +17,20 @@ import {
 import { verifyJWT, attachSchoolScope, checkRole, checkPermission } from '../middlewares/auth.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB cap, prevents oversized-upload DoS
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+    ];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Only .xlsx or .xls files are allowed'));
+    }
+    cb(null, true);
+  },
+});
 
 // All routes require JWT authentication and must be scoped to the school
 router.use(verifyJWT);

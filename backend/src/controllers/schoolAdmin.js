@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import xlsx from 'xlsx';
 import prisma from '../db.js';
+import { isValidEmail, generateTempPassword } from '../utils/validators.js';
 
 // Helper function to auto-assign active fee structures to a student
 async function autoAssignFeesForStudent(tx, studentId, className, schoolId) {
@@ -399,10 +400,13 @@ export async function bulkUploadStudents(req, res) {
       success: 0,
       failed: 0,
       errors: [],
+      // Per-student temporary credentials, returned once so the admin can
+      // distribute them. Each student gets a unique random password instead
+      // of a single shared default (a shared default would let anyone who
+      // knows it — e.g. a former student — log into any other student's
+      // account using just their email).
+      credentials: [],
     };
-
-    // Default password hash for uploaded students (Student123!)
-    const defaultPasswordHash = await bcrypt.hash('Student123!', 10);
 
     for (const [index, row] of rows.entries()) {
       const {
@@ -424,7 +428,16 @@ export async function bulkUploadStudents(req, res) {
         continue;
       }
 
+      if (!isValidEmail(String(Email).trim())) {
+        summary.failed++;
+        summary.errors.push(`Row ${rowNum}: "${Email}" is not a valid email address`);
+        continue;
+      }
+
       try {
+        const tempPassword = generateTempPassword();
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
+
         await prisma.$transaction(async (tx) => {
           // Check email
           const existingUser = await tx.user.findUnique({ where: { email: String(Email).trim() } });
@@ -446,7 +459,7 @@ export async function bulkUploadStudents(req, res) {
               name: String(Name).trim(),
               email: String(Email).trim(),
               phone: Phone ? String(Phone).trim() : null,
-              passwordHash: defaultPasswordHash,
+              passwordHash,
               role: 'STUDENT',
               schoolId,
               status: 'active',
@@ -471,6 +484,11 @@ export async function bulkUploadStudents(req, res) {
         });
 
         summary.success++;
+        summary.credentials.push({
+          email: String(Email).trim(),
+          rollNumber: String(RollNumber).trim(),
+          tempPassword,
+        });
       } catch (err) {
         summary.failed++;
         summary.errors.push(`Row ${rowNum}: ${err.message}`);
@@ -478,7 +496,7 @@ export async function bulkUploadStudents(req, res) {
     }
 
     return res.json({
-      message: `Bulk upload completed. Success: ${summary.success}, Failed: ${summary.failed}`,
+      message: `Bulk upload completed. Success: ${summary.success}, Failed: ${summary.failed}. Share each student's temporary password with them securely — it will not be shown again.`,
       summary,
     });
   } catch (error) {
