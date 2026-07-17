@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
+import { useAuthStore } from '../store/authStore';
 import Header from '../components/Header';
 import {
   CreditCard,
@@ -22,10 +23,12 @@ import {
   HelpCircle,
   Smartphone,
   ChevronRight,
-  XCircle
+  XCircle,
+  X
 } from 'lucide-react';
 
 export default function StudentDashboard() {
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState('invoices');
 
@@ -61,6 +64,15 @@ export default function StudentDashboard() {
     }
     return () => clearInterval(timer);
   }, [selectedFee, payMethod, isProcessing, paymentSuccess]);
+
+  // Clean up printing state after print dialog is closed
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintReceiptData(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
 
   // ----------------------------------------------------
   // DATA FETCHING
@@ -651,17 +663,82 @@ export default function StudentDashboard() {
         </div>
       )}
 
+      {/* RECEIPT PREVIEW MODAL (ON-SCREEN ONLY) */}
+      {printReceiptData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl flex flex-col relative text-left font-sans">
+            <button
+              onClick={() => setPrintReceiptData(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center pb-4 border-b border-slate-200">
+              <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                {user?.schoolName || 'Greenwood International School'}
+              </h3>
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Official Student Payment Receipt</p>
+            </div>
+
+            <div className="py-4 space-y-2.5 text-xs border-b border-slate-150 text-slate-650 font-medium">
+              <div className="flex justify-between"><strong>Student Name:</strong> <span>{printReceiptData.studentFee?.student?.user?.name || user?.name}</span></div>
+              <div className="flex justify-between"><strong>Roll Number:</strong> <span className="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{printReceiptData.studentFee?.student?.rollNumber || user?.studentProfile?.rollNumber || 'GW-26-1001'}</span></div>
+              <div className="flex justify-between"><strong>Class & Section:</strong> <span>{printReceiptData.studentFee?.student?.class ? `Class ${printReceiptData.studentFee.student.class} - ${printReceiptData.studentFee.student.section}` : (user?.studentProfile?.class ? `Class ${user.studentProfile.class} - ${user.studentProfile.section}` : 'Class 10 - A')}</span></div>
+              <div className="flex justify-between"><strong>Receipt Serial ID:</strong> <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{printReceiptData.receiptUrl}</span></div>
+              <div className="flex justify-between"><strong>Settlement Date:</strong> <span>{new Date(printReceiptData.createdAt).toLocaleString()}</span></div>
+              <div className="flex justify-between"><strong>Payment Method:</strong> <span className="uppercase bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold text-[10px]">{printReceiptData.method}</span></div>
+              {printReceiptData.status && (
+                <div className="flex justify-between"><strong>Status:</strong> <span className="uppercase font-bold text-emerald-600">{printReceiptData.status}</span></div>
+              )}
+            </div>
+
+            <div className="py-4 space-y-2 text-xs border-b border-slate-150 text-slate-600 font-medium">
+              <div className="flex justify-between"><strong>Bill Category:</strong> <span className="font-semibold text-slate-800">{printReceiptData.studentFee?.feeStructure?.feeType?.name}</span></div>
+              <div className="flex justify-between"><strong>Original Tuition:</strong> <span>{formatCurrency(Number(printReceiptData.studentFee?.amountDue))}</span></div>
+              {Number(printReceiptData.studentFee?.penaltyAmount) > 0 && (
+                <div className="flex justify-between text-rose-500"><strong>Overdue Penalty:</strong> <span>+ {formatCurrency(Number(printReceiptData.studentFee?.penaltyAmount))}</span></div>
+              )}
+              {Number(printReceiptData.studentFee?.waiverAmount) > 0 && (
+                <div className="flex justify-between text-emerald-600"><strong>Merit Waiver:</strong> <span>- {formatCurrency(Number(printReceiptData.studentFee?.waiverAmount))}</span></div>
+              )}
+            </div>
+
+            <div className="pt-4 flex justify-between font-black text-slate-900 text-sm">
+              <span>TOTAL AMOUNT SETTLED:</span>
+              <span className="text-indigo-650 text-indigo-600">{formatCurrency(Number(printReceiptData.amount))}</span>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 glass-btn-primary flex items-center justify-center gap-1.5 text-xs py-2 font-bold uppercase tracking-wider"
+              >
+                <Printer className="w-4 h-4" />
+                Print Receipt
+              </button>
+              <button
+                onClick={() => setPrintReceiptData(null)}
+                className="glass-btn-secondary text-xs py-2 px-4 font-bold uppercase tracking-wider"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PRINT-ONLY RECEIPT LAYOUT */}
       {printReceiptData && (
         <div className="print-only hidden p-10 max-w-xl mx-auto border border-slate-400 rounded-3xl font-sans mt-12 bg-white text-black">
           <div className="text-center pb-6 border-b border-slate-300">
-            <h1 className="text-xl font-black uppercase tracking-wider">Greenwood International School</h1>
+            <h1 className="text-xl font-black uppercase tracking-wider">{user?.schoolName || 'Greenwood International School'}</h1>
             <p className="text-[10px] text-slate-500 mt-1">Official Student Payment Receipt</p>
           </div>
 
           <div className="py-6 space-y-3.5 text-xs border-b border-slate-200">
-            <div className="flex justify-between"><strong>Student Name:</strong> <span>{user?.name}</span></div>
-            <div className="flex justify-between"><strong>Roll Number:</strong> <span>GW-26-1001</span></div>
+            <div className="flex justify-between"><strong>Student Name:</strong> <span>{printReceiptData.studentFee?.student?.user?.name || user?.name}</span></div>
+            <div className="flex justify-between"><strong>Roll Number:</strong> <span>{printReceiptData.studentFee?.student?.rollNumber || user?.studentProfile?.rollNumber || 'GW-26-1001'}</span></div>
             <div className="flex justify-between"><strong>Receipt Serial ID:</strong> <span className="font-mono">{printReceiptData.receiptUrl}</span></div>
             <div className="flex justify-between"><strong>Settlement Date:</strong> <span>{new Date(printReceiptData.createdAt).toLocaleString()}</span></div>
             <div className="flex justify-between"><strong>Transaction Type:</strong> <span className="uppercase">{printReceiptData.method}</span></div>
@@ -680,7 +757,7 @@ export default function StudentDashboard() {
           </div>
 
           <div className="mt-20 text-center text-[9px] text-slate-400 italic">
-            This invoice print represents a secure Ledger Ledger Transaction update generated on the PaperBuddy SaaS platform.
+            This invoice print represents a secure Ledger Transaction update generated on the PaperBuddy SaaS platform.
           </div>
         </div>
       )}
