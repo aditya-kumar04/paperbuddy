@@ -1,6 +1,9 @@
+// config.js MUST be the first import: it loads .env and validates required
+// secrets before any other module (routers, middlewares, prisma client) runs.
+import { PORT, ALLOWED_ORIGINS } from './src/config.js';
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 // Import routers
 import authRouter from './src/routes/auth.js';
@@ -9,16 +12,14 @@ import schoolAdminRouter from './src/routes/schoolAdmin.js';
 import accountantRouter from './src/routes/accountant.js';
 import studentRouter from './src/routes/student.js';
 
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: '*', // For development, allow all origins. Can be restricted to Vite port (e.g. 5173) in production
+  origin: ALLOWED_ORIGINS, // Restricted to FRONTEND_URL (comma-separated list) from env
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
 app.use(express.json());

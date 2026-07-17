@@ -1,9 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'paperbuddy-super-secret-jwt-signing-key-2026';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'paperbuddy-super-secret-jwt-refresh-signing-key-2026';
+import { JWT_SECRET, JWT_REFRESH_SECRET, PRIMARY_FRONTEND_URL } from '../config.js';
 
 function generateTokens(userPayload) {
   const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '1d' });
@@ -251,8 +249,7 @@ export async function forgotPassword(req, res) {
     );
 
     // Build reset URL
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
+    const resetUrl = `${PRIMARY_FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
 
     console.log(`\n========================================`);
     console.log(`PASSWORD RESET REQUESTED FOR: ${user.email}`);
