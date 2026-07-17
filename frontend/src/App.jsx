@@ -6,6 +6,8 @@ import { useAuthStore } from './store/authStore';
 // Import screens
 import Login from './screens/Login';
 import AcceptInvite from './screens/AcceptInvite';
+import ForgotPassword from './screens/ForgotPassword';
+import ResetPassword from './screens/ResetPassword';
 import SuperAdminDashboard from './screens/SuperAdminDashboard';
 import SchoolAdminDashboard from './screens/SchoolAdminDashboard';
 import AccountantDashboard from './screens/AccountantDashboard';
@@ -62,6 +64,8 @@ export default function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Dashboards */}
           <Route

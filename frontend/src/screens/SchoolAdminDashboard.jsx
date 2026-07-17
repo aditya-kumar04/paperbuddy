@@ -24,7 +24,8 @@ import {
   Layers,
   GraduationCap,
   Receipt,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
 import { 
   AreaChart, 

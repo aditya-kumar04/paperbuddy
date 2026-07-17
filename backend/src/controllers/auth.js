@@ -222,3 +222,154 @@ export async function acceptInvite(req, res) {
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function forgotPassword(req, res) {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    let user = await prisma.superAdmin.findUnique({ where: { email } });
+    let isSuperAdmin = true;
+
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email } });
+      isSuperAdmin = false;
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User with this email does not exist' });
+    }
+
+    // Sign reset token with JWT_SECRET + current password hash (one-time use)
+    const resetSecret = JWT_SECRET + user.passwordHash;
+    const resetToken = jwt.sign(
+      { id: user.id, email: user.email, role: isSuperAdmin ? 'SUPER_ADMIN' : user.role },
+      resetSecret,
+      { expiresIn: '15m' }
+    );
+
+    // Build reset URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
+
+    console.log(`\n========================================`);
+    console.log(`PASSWORD RESET REQUESTED FOR: ${user.email}`);
+    console.log(`Reset Link: ${resetUrl}`);
+    console.log(`========================================\n`);
+
+    return res.json({
+      message: 'Password reset link generated successfully.',
+      resetUrl, // Expose in response for easier local testing/dev
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function resetPassword(req, res) {
+  const { token, email, newPassword } = req.body;
+  if (!token || !email || !newPassword) {
+    return res.status(400).json({ error: 'Token, email, and new password are required' });
+  }
+
+  try {
+    let user = await prisma.superAdmin.findUnique({ where: { email } });
+    let isSuperAdmin = true;
+
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email } });
+      isSuperAdmin = false;
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify token using the composite secret
+    const resetSecret = JWT_SECRET + user.passwordHash;
+    let decoded;
+    try {
+      decoded = jwt.verify(token, resetSecret);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    if (decoded.email !== email || decoded.id !== user.id) {
+      return res.status(400).json({ error: 'Invalid token payload' });
+    }
+
+    // Hash the new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update in database
+    if (isSuperAdmin) {
+      await prisma.superAdmin.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      });
+    }
+
+    return res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+  const role = req.user.role;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+
+  try {
+    let user;
+    if (role === 'SUPER_ADMIN') {
+      user = await prisma.superAdmin.findUnique({ where: { id: userId } });
+    } else {
+      user = await prisma.user.findUnique({ where: { id: userId } });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password matches
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Incorrect current password' });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Save to DB
+    if (role === 'SUPER_ADMIN') {
+      await prisma.superAdmin.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+    }
+
+    return res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
