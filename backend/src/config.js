@@ -5,7 +5,11 @@
 // gives one place to fail fast if required secrets are missing.
 
 import dotenv from 'dotenv';
-dotenv.config();
+
+// Vitest sets NODE_ENV=test automatically. When running tests we load
+// .env.test instead of .env, so the test suite always runs against its own
+// database and never touches real dev/production secrets.
+dotenv.config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
 
 const REQUIRED_VARS = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 
